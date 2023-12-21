@@ -1,62 +1,103 @@
-'use strict';
+"use strict";
 
-const { ZigBeeDevice } = require('homey-zigbeedriver');
-const { Cluster, debug, CLUSTER } = require('zigbee-clusters');
-// const TuyaWindowCoveringCluster = require('../../lib/TuyaWindowCoveringCluster')
+const { ZigBeeDevice } = require("homey-zigbeedriver");
+const { Cluster, debug, CLUSTER } = require("zigbee-clusters");
+const TuyaWindowCoveringCluster = require("../../lib/TuyaWindowCoveringCluster");
 
-// Cluster.addCluster(TuyaWindowCoveringCluster);
+Cluster.addCluster(TuyaWindowCoveringCluster);
 
 class curtainmodule extends ZigBeeDevice {
+  async onNodeInit({ zclNode }) {
+    this.printNode();
 
-    async onNodeInit({zclNode}) {
+    const { subDeviceId } = this.getData();
+    const endpoint = subDeviceId === "secondModule" ? 2 : 1;
 
-        this.printNode();
+    this.log("Device data: ", subDeviceId);
+    this.log("Endpoint: ", endpoint);
 
-        this._reportDebounceEnabled = false;
-        
-        this.registerCapability('windowcoverings_set', CLUSTER.WINDOW_COVERING, {
-            reportOpts: {
-            configureAttributeReporting: {
-                minInterval: 0, // No minimum reporting interval
-                maxInterval: 30000, // Maximally every ~8 hours
-                minChange: 5, // Report when value changed by 5
-            },
-            },
+    this._reportDebounceEnabled = false;
+
+    this.registerCapability("windowcoverings_set", CLUSTER.WINDOW_COVERING, {
+      endpoint: endpoint,
+      reportOpts: {
+        configureAttributeReporting: {
+          minInterval: 0, // No minimum reporting interval
+          maxInterval: 30000, // Maximally every ~8 hours
+          minChange: 5, // Report when value changed by 5
+        },
+      },
+    });
+
+    await this.zclNode.endpoints[endpoint].clusters.windowCovering
+      .readAttributes("calibrationTime")
+      .then((res) => {
+        this.log("Read attributes: ", res);
+      });
+
+    await this.zclNode.endpoints[
+      endpoint
+    ].clusters.windowCovering.writeAttributes({ calibrationTime: 300,motorReversal: 0  });
+
+    await this.zclNode.endpoints[endpoint].clusters.windowCovering
+      .readAttributes("calibrationTime", "motorReversal")
+      .then((ret) => {
+        this.log("windowCovering settings: ", ret);
+      });
+
+
+
+    if (!this.isSubDevice()) {
+      await zclNode.endpoints[1].clusters.basic
+        .readAttributes(
+          "manufacturerName",
+          "zclVersion",
+          "appVersion",
+          "modelId",
+          "powerSource",
+          "attributeReportingStatus"
+        )
+        .catch((err) => {
+          this.error("Error when reading device attributes ", err);
         });
-
-        await zclNode.endpoints[1].clusters.basic.readAttributes('manufacturerName', 'zclVersion', 'appVersion', 'modelId', 'powerSource', 'attributeReportingStatus')
-        .catch(err => {
-            this.error('Error when reading device attributes ', err);
-        });
-
     }
+  }
 
-    // When upgrading to node-zigbee-clusters v.2.0.0 this must be adressed:
-    // v2.0.0
-    // Changed Cluster.readAttributes signature, attributes must now be specified as an array of strings.
-    // zclNode.endpoints[1].clusters.windowCovering.readAttributes(["motorReversal", "ANY OTHER IF NEEDED"]);
+  // When upgrading to node-zigbee-clusters v.2.0.0 this must be adressed:
+  // v2.0.0
+  // Changed Cluster.readAttributes signature, attributes must now be specified as an array of strings.
+  // zclNode.endpoints[1].clusters.windowCovering.readAttributes(["motorReversal", "ANY OTHER IF NEEDED"]);
 
-    async onSettings({ oldSettings, newSettings, changedKeys }) {
-
-        if (changedKeys.includes('reverse')) {
-
-            const motorReversed = newSettings['reverse'];
-            if (motorReversed === 0) {
-                await this.zclNode.endpoints[1].clusters.windowCovering.writeAttributes({motorReversal: 0});
-                this.log("Motor set to normal mode: ", await this.zclNode.endpoints[1].clusters.windowCovering.readAttributes(motorReversal));
-            } else {
-                await this.zclNode.endpoints[1].clusters.windowCovering.writeAttributes({motorReversal: 1});
-                this.log("Motor set to reverse: ", await this.zclNode.endpoints[1].clusters.windowCovering.readAttributes(motorReversal));
-            }
-
-        }
-
+  async onSettings({ oldSettings, newSettings, changedKeys }) {
+    if (changedKeys.includes("reverse")) {
+      const motorReversed = newSettings["reverse"];
+      if (motorReversed === 0) {
+        await this.zclNode.endpoints[1].clusters.windowCovering.writeAttributes(
+          { motorReversal: 0 }
+        );
+        this.log(
+          "Motor set to normal mode: ",
+          await this.zclNode.endpoints[1].clusters.windowCovering.readAttributes(
+            motorReversal
+          )
+        );
+      } else {
+        await this.zclNode.endpoints[1].clusters.windowCovering.writeAttributes(
+          { motorReversal: 1 }
+        );
+        this.log(
+          "Motor set to reverse: ",
+          await this.zclNode.endpoints[1].clusters.windowCovering.readAttributes(
+            motorReversal
+          )
+        );
+      }
     }
+  }
 
-    onDeleted(){
-		this.log("Curtain Module removed")
-	}
-
+  onDeleted() {
+    this.log("Curtain Module removed");
+  }
 }
 
 module.exports = curtainmodule;

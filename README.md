@@ -432,6 +432,7 @@ Supported devices:
     _TZ3000_femsaaua / TS130F
     _TZ3000_e3vhyirx / TS130F (LoraTap SC500ZB)
     _TZ3000_1dd0d5yi / TS130F (MOES MS-108ZR)
+    _TZ3000_j1xl73iw / TS130F
 
 - Curtain Motor
     _TZE200_5zbp6j0u / TS0601
