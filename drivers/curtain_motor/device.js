@@ -53,6 +53,8 @@ const getDataValue = (dpValue) => {
   }
 }
 
+const { subDeviceId } = this.getData();
+
 class CurtainMotor extends TuyaSpecificClusterDevice {
 
   async onNodeInit({ zclNode }) {
